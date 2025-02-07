@@ -1,0 +1,397 @@
+```{r include=FALSE}
+rm(list=ls())
+graphics.off()
+```
+```{r warning=FALSE, include=FALSE}
+library(settings)
+library('readxl')
+library('Matrix')
+library('corrplot')
+library('forcats')
+library('ggplot2')
+library('lme4')
+library('lubridate')
+library('nlmeU')
+library('dplyr')
+library('tidyr')
+library('psych')
+library('naniar')
+library('sjPlot')
+library('tidyverse')
+library('janitor')
+library('rlang')
+library('ggthemes')
+library('gt')
+library('gtExtras')
+library('webshot2')
+library('magrittr')
+library('plot.matrix')
+library('car')
+library(randomForest)
+library(xgboost)
+library(Matrix)
+library(MASS)
+library(glmnet)
+library(lattice)
+library(caret)
+library(DescTools)
+library(VIM)
+```
+```{r eval=FALSE, include=FALSE}
+setwd("/Users/UTENTE/Library/CloudStorage/OneDrive-PolitecnicodiMilano/Politecnico/Tesi Omega3c")
+df <- read_excel("Database.xlsx", na = "0")%>%
+  as_tibble() %>% 
+  clean_names()
+
+```
+
+```{r warning=FALSE, include=FALSE}
+df <- read_excel("Database.xlsx", na = "0")%>%
+  as_tibble() %>% 
+  clean_names()
+```
+
+```{r include=FALSE}
+#####rimozione colonne con NA##### 
+df_senzaNA <- df[, colSums(!is.na(df)) > 0]
+#rimanenti 69 variabili#
+
+head(df_senzaNA)
+nomi_colonne <- colnames(df_senzaNA)
+summary(df_senzaNA)
+
+df_clean <- df_senzaNA%>%
+  mutate(across(everything(), ~ sub(".* - ", "", .)))
+
+####rimozione delle righe che non hanno ne NPS ne CES####
+df_clean$nps <- as.numeric(df_clean$nps)
+df_clean$ces <- as.numeric(df_clean$ces)
+df_clean <- df_clean[!is.na(df_clean$nps) | !is.na(df_clean$ces), ]
+
+# df_clean$NPS[is.na(df_clean$NPS)] <- 0
+# df_clean$CES[is.na(df_clean$CES)] <- 0
+
+####rimozione righe con tutti NA####
+df_clean <- df_clean[rowSums(is.na(df_clean)) != ncol(df_clean), ]
+
+#####trasformazione del tipo della variabile#####
+df_clean$local_response_date <- ymd(df_clean$local_response_date)
+df_clean$banca_mcf_xav_cod <- as.factor(df_clean$banca_mcf_xav_cod)
+df_clean$browser <- as.factor(df_clean$browser)
+df_clean$sistema_operativo <- as.factor(df_clean$sistema_operativo)
+df_clean$segmento_des_comm <- as.factor(df_clean$segmento_des_comm)
+df_clean$nps_segment <- as.factor(df_clean$nps_segment)
+df_clean$satisfaction <- as.numeric(df_clean$satisfaction)
+df_clean$gestore <- as.factor(df_clean$gestore)
+df_clean$survey <- as.factor(df_clean$survey)
+df_clean$operazione <- as.factor(df_clean$operazione)
+df_clean$banca_mcf_prodotto_code <- as.factor(df_clean$banca_mcf_prodotto_code)
+df_clean$regione_des_ana <- as.factor(df_clean$regione_des_ana)
+df_clean$area <- as.factor(df_clean$area)
+df_clean$direzione <- as.factor(df_clean$direzione)
+df_clean$filiale <- as.factor(df_clean$filiale)
+df_clean$email <- as.factor(df_clean$email)
+df_clean$customer_segment <- as.factor(df_clean$customer_segment)
+df_clean$attivita_eco_des_ana <- as.factor(df_clean$attivita_eco_des_ana)
+df_clean$sesso_code_ana <- as.factor(df_clean$sesso_code_ana)
+df_clean$fascia_eta_code_ana <- as.factor(df_clean$fascia_eta_code_ana)
+df_clean$fascia_anzianita_code_ana <- as.factor(df_clean$fascia_eta_code_ana)
+df_clean$anzianita_anni_num <- as.numeric(df_clean$anzianita_anni_num)
+df_clean$xav_profilo_postazione <- as.factor(df_clean$xav_profilo_postazione)
+df_clean$fascia_fatturato_ana <- as.factor(df_clean$fascia_fatturato_ana)
+df_clean$banca_mcf_xav_des <- as.factor(df_clean$banca_mcf_xav_des)
+df_clean$vdbank_flg_ana <- as.factor(df_clean$vdbank_flg_ana)
+df_clean$xntweb_flg_ana <- as.factor(df_clean$xntweb_flg_ana)
+df_clean$cliente_con_mutuo_flg_ana <- as.factor(df_clean$cliente_con_mutuo_flg_ana)
+df_clean$cliente_investitore_flg_ana <- as.factor(df_clean$cliente_investitore_flg_ana)
+df_clean$cliente_solo_cc_flg_ana <- as.factor(df_clean$cliente_solo_cc_flg_ana)
+df_clean$in_bonis_flg_comm <- as.factor(df_clean$in_bonis_flg_comm)
+df_clean$multi_flg_comm <- as.factor(df_clean$multi_flg_comm)
+df_clean$risk_rating_comm <- as.factor(df_clean$risk_rating_comm)
+df_clean$cs_abi_num_comm <- as.numeric(df_clean$cs_abi_num_comm)
+df_clean$fascia_tr_code_comm <- as.factor(df_clean$fascia_tr_code_comm)
+df_clean$fascia_utilizzo_online_comm <- as.factor(df_clean$fascia_utilizzo_online_comm)
+df_clean$nps_factors_survey_canale <- as.factor(df_clean$nps_factors_survey_canale)
+df_clean$nps_factors_survey_canale_other <- as.factor(df_clean$nps_factors_survey_canale_other)
+df_clean$ces_factors_transfer_intercept <- as.factor(df_clean$ces_factors_transfer_intercept)
+df_clean$ces_factors_other <- as.factor(df_clean$ces_factors_other)
+df_clean$app_knowledge <- as.factor(df_clean$app_knowledge)
+df_clean$app_used <- as.factor(df_clean$app_used)
+df_clean$xa_app_not_used_reason <- as.factor(df_clean$xa_app_not_used_reason)
+df_clean$xa_app_not_used_reason_other <- as.factor(df_clean$xa_app_not_used_reason_other)
+df_clean$xv_va_app_not_used_reason <- as.factor(df_clean$xv_va_app_not_used_reason)
+df_clean$nps_factors_survey_filiale <- as.factor(df_clean$nps_factors_survey_filiale)
+df_clean$reason_for_score_nps_filiale <- as.factor(df_clean$reason_for_score_nps_filiale)
+df_clean$need_satisfied <- as.factor(df_clean$need_satisfied)
+df_clean$easy_support <- as.numeric(df_clean$easy_support)
+df_clean$service_satisfaction <- as.numeric(df_clean$service_satisfaction)
+df_clean$reason_for_satisfaction <- as.factor(df_clean$reason_for_satisfaction)
+df_clean$reason_for_score_comment <- as.factor(df_clean$reason_for_score_comment)
+df_clean$other_issue_type <- as.factor(df_clean$other_issue_type)
+df_clean$expenses_icon <- as.factor(df_clean$expenses_icon)
+df_clean$expenses_icon_used <- as.factor(df_clean$expenses_icon_used)
+df_clean$consulted_features <- as.factor(df_clean$consulted_features)
+df_clean$interested_in_functionality <- as.factor(df_clean$interested_in_functionality)
+df_clean$ces_reason_for_score <- as.factor(df_clean$ces_reason_for_score)
+df_clean$feature_not_used <- as.factor(df_clean$feature_not_used_other)
+df_clean$not_entered_in_expenses_section <- as.factor(df_clean$not_entered_in_expenses_section)
+df_clean$not_entered_in_expenses_section_other <- as.factor(df_clean$not_entered_in_expenses_section_other)
+df_clean$suggestions_to_improve <- as.factor(df_clean$suggestions_to_improve)
+df_clean$reason_for_dissatisfaction <- as.factor(df_clean$reason_for_dissatisfaction)
+df_clean$feature_not_used_other <- as.factor(df_clean$feature_not_used_other)
+df_clean$disservices_description <- as.factor(df_clean$disservices_description)
+```
+# Survey selection
+```{r echo=TRUE}
+survey_3 = df_clean[df_clean$survey == "3",]
+```
+# Variable Aggregation
+```{r echo=TRUE}
+survey_3 <- survey_3 %>%
+  mutate(operazione_aggregata = case_when(
+    operazione %in% c(2, 3, 5, 6, 9, 10) ~ as.factor(operazione),
+    TRUE ~ "Altro"
+  ))
+survey_3$operazione_aggregata = as.factor((survey_3$operazione_aggregata))
+```
+```{r echo=TRUE}
+survey_3 <- survey_3 %>%
+  mutate(regione_aggregata = case_when(
+    regione_des_ana %in% c(1, 12, 3, 17, 19) ~ as.factor(regione_des_ana),
+    TRUE ~ "Altro"
+  ))
+survey_3$regione_aggregata = as.factor((survey_3$regione_aggregata))
+```
+```{r echo=TRUE}
+survey_3 <- survey_3 %>%
+  mutate(cs_aggregata = case_when(
+    cs_abi_num_comm %in% c(1,2,3,4,5,6,7,8,9) ~ as.factor(cs_abi_num_comm),
+    TRUE ~ "Altro"
+  ))
+```
+```{r eval=FALSE, include=FALSE}
+survey_3$email = as.character(survey_3$email)
+survey_3$email[is.na(survey_3$email)] <- "no email cliente"
+survey_3$email = as.factor(survey_3$email)
+
+table(survey_3$regione_aggregata)
+```
+```{r include=FALSE}
+GTest(table(survey_3$customer_segment, survey_3$segmento_des_comm))
+
+NAS = num_NA <- sum(is.na(survey_3$nps))
+print(num_NA)
+```
+# NAs Imputation
+```{r}
+survey_3 <- kNN(survey_3, variable = "risk_rating_comm")
+```
+```{r include=FALSE}
+survey_3$cs_abi_num_comm = as.factor(survey_3$cs_abi_num_comm)
+survey_3$nps = as.integer((survey_3$nps))
+
+modello <- lm(nps ~  segmento_des_comm + operazione_aggregata + regione_aggregata + direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + cliente_solo_cc_flg_ana + risk_rating_comm + cs_aggregata, data = survey_3)
+
+# 3. Visualizza i risultati del modello
+summary(modello)
+AIC(modello)
+```
+```{r include=FALSE}
+survey_3_clean <- survey_3[complete.cases(survey_3[, c("nps", "operazione_aggregata", "fascia_eta_code_ana", "regione_aggregata", "segmento_des_comm","cliente_con_mutuo_flg_ana", "cliente_investitore_flg_ana", "cliente_solo_cc_flg_ana", "risk_rating_comm", "cs_abi_num_comm", "sesso_code_ana", "direzione", "customer_segment")]), 
+                           c("nps", "operazione_aggregata", "fascia_eta_code_ana", "regione_aggregata", "segmento_des_comm","cliente_con_mutuo_flg_ana", "cliente_investitore_flg_ana", "cliente_solo_cc_flg_ana", "risk_rating_comm", "cs_abi_num_comm", "sesso_code_ana", "direzione", "customer_segment")]  
+
+```
+# Dataset cleaning 
+
+survey_3_clean_3 <- survey_3[complete.cases(survey_3[, c("nps", "operazione_aggregata", "fascia_eta_code_ana","regione_aggregata", "segmento_des_comm","cliente_con_mutuo_flg_ana","cliente_investitore_flg_ana", "cliente_solo_cc_flg_ana", "cs_aggregata", "sesso_code_ana", "direzione", "customer_segment", "risk_rating_comm")]), 
+                             c("nps", "operazione_aggregata", "fascia_eta_code_ana","regione_aggregata", "segmento_des_comm","cliente_con_mutuo_flg_ana","cliente_investitore_flg_ana", "cliente_solo_cc_flg_ana", "cs_aggregata", "sesso_code_ana", "direzione", "customer_segment", "risk_rating_comm")]  
+```
+# Linear model
+
+modello <- lm(nps ~  segmento_des_comm + operazione_aggregata + regione_aggregata + direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + risk_rating_comm + cliente_solo_cc_flg_ana  + cs_aggregata + risk_rating_comm, data = survey_3_clean_3)
+
+# 3. Visualizza i risultati del modello
+summary(modello)
+AIC(modello)
+
+ref_group <- survey_3_clean_3 %>%
+  filter(
+    segmento_des_comm == "segmento_des_comm1",
+    operazione_aggregata == "operazione_aggregata1",
+    regione_aggregata == "regione_aggregata1",
+    direzione == "direzione1",
+    sesso_code_ana == "sesso_code_ana1",
+    fascia_eta_code_ana == "fascia_eta_code_ana1",
+    cliente_con_mutuo_flg_ana == "cliente_con_mutuo_flg_ana1",
+    cliente_investitore_flg_ana == "cliente_investitore_flg_ana1",
+    risk_rating_comm == "risk_rating_comm1",
+    cliente_solo_cc_flg_ana == "cliente_solo_cc_flg_ana1",
+    cs_aggregata == "cs_aggregata1"
+  )
+
+# Conta il numero di osservazioni nel gruppo di riferimento
+n_ref_group <- nrow(ref_group)
+n_ref_group
+
+# Conta le occorrenze per ciascuna categoria di riferimento
+survey_3_clean_3 %>%
+  summarise(
+    segmento_count = sum(segmento_des_comm == "segmento_des_comm1"),
+    operazione_count = sum(operazione_aggregata == "operazione_aggregata1"),
+    regione_count = sum(regione_aggregata == "regione_aggregata1"),
+    direzione_count = sum(direzione == "direzione1"),
+    sesso_count = sum(sesso_code_ana == "sesso_code_ana1"),
+    fascia_eta_count = sum(fascia_eta_code_ana == "fascia_eta_code_ana1"),
+    mutuo_count = sum(cliente_con_mutuo_flg_ana == "cliente_con_mutuo_flg_ana1"),
+    investitore_count = sum(cliente_investitore_flg_ana == "cliente_investitore_flg_ana1"),
+    risk_rating_count = sum(risk_rating_comm == "risk_rating_comm1"),
+    solo_cc_count = sum(cliente_solo_cc_flg_ana == "cliente_solo_cc_flg_ana1"),
+    cs_count = sum(cs_aggregata == "cs_aggregata1")
+  )
+```
+```{r eval=FALSE, include=FALSE}
+# Calcola la media totale di NPS
+media_nps <- mean(survey_3_clean_3$nps, na.rm = TRUE)
+print(media_nps)
+
+
+# Crea una nuova variabile per NPS centrato
+survey_3_clean_3$nps_centrato <- survey_3_clean_3$nps - media_nps
+
+# Esegui la regressione con NPS centrato e senza intercetta
+modello <- lm(nps ~ segmento_des_comm + operazione_aggregata + 
+                regione_aggregata + direzione + sesso_code_ana + 
+                fascia_eta_code_ana + cliente_con_mutuo_flg_ana + 
+                cliente_investitore_flg_ana + risk_rating_comm + 
+                cliente_solo_cc_flg_ana + cs_aggregata , 
+              data = survey_3_clean_3)
+
+# Visualizza il riassunto del modello
+summary(modello)
+```
+
+modello_base <- lm(nps_centrato ~ 0 + segmento_des_comm + operazione_aggregata + regione_aggregata + direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + cliente_solo_cc_flg_ana  + cs_aggregata + risk_rating_comm, data = survey_3_clean_3)
+modello_step <- step(modello_base, scope = ~ .^2, direction = "both")
+
+modello_2 = lm(nps_centrato ~ 0 + segmento_des_comm + operazione_aggregata + regione_aggregata + 
+                 direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + 
+                 cliente_investitore_flg_ana + cliente_solo_cc_flg_ana + cs_aggregata + 
+                 risk_rating_comm + regione_aggregata:risk_rating_comm + fascia_eta_code_ana:risk_rating_comm + 
+                 direzione:risk_rating_comm + segmento_des_comm:operazione_aggregata + 
+                 direzione:cliente_solo_cc_flg_ana + cs_aggregata:risk_rating_comm + 
+                 cliente_con_mutuo_flg_ana:risk_rating_comm + operazione_aggregata:cliente_con_mutuo_flg_ana + 
+                 operazione_aggregata:cliente_solo_cc_flg_ana + regione_aggregata:cliente_solo_cc_flg_ana + 
+                 segmento_des_comm:cliente_investitore_flg_ana + cliente_con_mutuo_flg_ana:cliente_investitore_flg_ana, data = survey_3_clean_3)
+summary(modello_2)
+AIC(modello_2)
+```
+```{r eval=FALSE, include=FALSE}
+modello_3 = lm(nps ~ segmento_des_comm + operazione_aggregata + regione_aggregata + direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + cliente_solo_cc_flg_ana  + cs_aggregata , data = survey_3 )
+
+summary(modello_3)
+AIC(modello_3)
+```
+```{r eval=FALSE, include=FALSE}
+survey_3_clean_2 <- survey_3[complete.cases(survey_3[, c("nps", "operazione_aggregata", "fascia_eta_code_ana", "regione_aggregata", "segmento_des_comm","cliente_con_mutuo_flg_ana", "cliente_investitore_flg_ana", "cliente_solo_cc_flg_ana", "cs_aggregata", "sesso_code_ana", "direzione")]), 
+                             c("nps", "operazione_aggregata", "fascia_eta_code_ana", "regione_aggregata", "segmento_des_comm","cliente_con_mutuo_flg_ana", "cliente_investitore_flg_ana", "cliente_solo_cc_flg_ana", "cs_aggregata", "sesso_code_ana", "direzione")]  
+```
+```{r eval=FALSE, include=FALSE}
+modello_4 = lm(nps ~ segmento_des_comm + operazione_aggregata + regione_aggregata + direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + cliente_solo_cc_flg_ana  + cs_aggregata, data = survey_3_clean_2 )
+
+summary(modello_4)
+AIC(modello_4)
+```
+```{r eval=FALSE, include=FALSE}
+modello_base_2 <- lm(nps ~  segmento_des_comm + operazione_aggregata + regione_aggregata + direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + cliente_solo_cc_flg_ana  + cs_aggregata, data = survey_3_clean_2)
+modello_step_2 <- step(modello_base_2, scope = ~ .^2, direction = "both")
+```
+```{r eval=FALSE, include=FALSE}
+modello_5 = lm(nps ~ ssegmento_des_comm + operazione_aggregata + regione_aggregata + 
+                 direzione + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + 
+                 cliente_solo_cc_flg_ana + cs_aggregata + regione_aggregata:cliente_investitore_flg_ana + 
+                 direzione:cliente_solo_cc_flg_ana + segmento_des_comm:operazione_aggregata + 
+                 cliente_con_mutuo_flg_ana:cliente_investitore_flg_ana + operazione_aggregata:cliente_con_mutuo_flg_ana + 
+                 regione_aggregata:cliente_solo_cc_flg_ana + operazione_aggregata:cliente_solo_cc_f, data = survey_3_clean_2
+)
+
+summary(modello_5)
+AIC(modello_5)
+```
+# Lasso Model
+```{r echo=TRUE}
+x <- model.matrix(nps  ~    segmento_des_comm + operazione_aggregata + regione_aggregata + direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + cliente_solo_cc_flg_ana  + cs_aggregata + risk_rating_comm , data = survey_3_clean_3)[,-1]
+
+y <- survey_3_clean_3$nps
+
+lasso_model <- cv.glmnet(x, y, alpha = 1, intercept = TRUE)
+lasso_coefs <- as.matrix(coef(lasso_model, s = "lambda.min"))
+selected_variables <- rownames(lasso_coefs)[lasso_coefs != 0]
+x_selected <- x[, selected_variables]
+lasso_lm_model<- lm(survey_3_clean_3$nps ~ x_selected)
+```
+```{r}
+coef(lasso_model, s = "lambda.min")
+selected_variables <- selected_variables[selected_variables != "(Intercept)"]  
+print(lasso_model$lambda.min)  
+
+# Costruisci un nuovo modello lineare con solo le variabili selezionate
+
+
+# Visualizza il nuovo modello
+summary(modello_finale)
+AIC(modello_finale)
+```
+```{r eval=FALSE, include=FALSE}
+modello_originale <- lm(survey_3_clean_3$nps ~  segmento_des_comm + operazione_aggregata + regione_aggregata + direzione + sesso_code_ana + fascia_eta_code_ana + cliente_con_mutuo_flg_ana + cliente_investitore_flg_ana + cliente_solo_cc_flg_ana + risk_rating_comm + cs_aggregata, data = survey_3_clean_3)
+modello_dopo_lasso <- lm(formula = survey_3_clean_3$nps ~ x_selected)
+anova(modello_originale, modello_dopo_lasso)
+```
+```{r eval=FALSE, include=FALSE}
+modello_2 = lm(survey_3_clean_3$nps ~ segmento_des_comm + operazione_aggregata + regione_aggregata + 
+                 direzione + cliente_con_mutuo_flg_ana + cs_aggregata + direzione:cliente_con_mutuo_flg_ana, data = survey_3_clean_3)
+modello_dopo_lasso <- lm(formula = survey_3_clean_3$nps ~ x_selected)
+anova(modello_2, modello_dopo_lasso)
+```
+
+# Lasso interactions
+```{r echo=TRUE}
+x_selected <- as.data.frame(x_selected)
+selected_variables <- colnames(x_selected) # Le variabili selezionate
+# Assumendo che 'operazione_aggregata' sia la variabile categorica principale
+formula_interazioni <- as.formula(paste("y ~ ( +", paste(selected_variables, collapse = " + "), ")^2"))
+modello_interazioni <- lm(formula_interazioni, data = x_selected)
+```
+```{r include=FALSE}
+options(max.print = 100000)
+summary(modello_interazioni)
+```
+```{r eval=FALSE, include=FALSE}
+library(broom)
+summary <- summary(modello_interazioni)
+model_summary_table <- tidy(modello_interazioni)
+library(openxlsx)
+
+# Creare un workbook Excel
+wb <- createWorkbook()
+
+# Aggiungere un foglio
+addWorksheet(wb, "summary")
+
+# Scrivere la tabella nel foglio
+writeData(wb, sheet = "summary", model_summary_table)
+
+# Salvare il file Excel
+saveWorkbook(wb, "summary.xlsx", overwrite = TRUE)
+```
+# Lasso with interactions vs lasso without interactions
+```{r echo=TRUE, warning=FALSE}
+anova(modello_finale, modello_interazioni)
+```
+
+
+
+
+
+
+
+

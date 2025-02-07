@@ -1,0 +1,478 @@
+```{r include=FALSE}
+rm(list=ls())
+graphics.off()
+```
+```{r include=FALSE}
+library(settings)
+library('readxl')
+library('Matrix')
+library('corrplot')
+library('forcats')
+library('ggplot2')
+library('lme4')
+library('lubridate')
+library('nlmeU')
+library('dplyr')
+library('tidyr')
+library('psych')
+library('naniar')
+library('sjPlot')
+library('tidyverse')
+library('janitor')
+library('rlang')
+library('ggthemes')
+library('gt')
+library('gtExtras')
+library('webshot2')
+library('magrittr')
+library('plot.matrix')
+library('car')
+library(randomForest)
+library(xgboost)
+library(Matrix)
+library(MASS)
+library(glmnet)
+library(lattice)
+library(caret)
+library(DescTools)
+library(VIM)
+```
+```{r eval=FALSE, include=FALSE}
+setwd("/Users/UTENTE/Library/CloudStorage/OneDrive-PolitecnicodiMilano/Politecnico/Tesi Omega3c")
+df <- read_excel("Database.xlsx", na = "0")%>%
+  as_tibble() %>% 
+  clean_names()
+
+```
+```{r warning=FALSE, include=FALSE}
+df <- read_excel("Database.xlsx", na = "0")%>%
+  as_tibble() %>% 
+  clean_names()
+```
+```{r include=FALSE}
+df$nps = as.integer(df$nps)
+```
+```{r include=FALSE}
+#####rimozione colonne con NA##### 
+df_senzaNA <- df[, colSums(!is.na(df)) > 0]
+#rimanenti 69 variabili#
+
+head(df_senzaNA)
+nomi_colonne <- colnames(df_senzaNA)
+summary(df_senzaNA)
+
+df_clean <- df_senzaNA%>%
+  mutate(across(everything(), ~ sub(".* - ", "", .)))
+
+####rimozione delle righe che non hanno ne NPS ne CES####
+df_clean$nps <- as.numeric(df_clean$nps)
+df_clean$ces <- as.numeric(df_clean$ces)
+df_clean <- df_clean[!is.na(df_clean$nps) | !is.na(df_clean$ces), ]
+
+# df_clean$NPS[is.na(df_clean$NPS)] <- 0
+# df_clean$CES[is.na(df_clean$CES)] <- 0
+
+####rimozione righe con tutti NA####
+df_clean <- df_clean[rowSums(is.na(df_clean)) != ncol(df_clean), ]
+
+#####trasformazione del tipo della variabile#####
+df_clean$local_response_date <- ymd(df_clean$local_response_date)
+df_clean$banca_mcf_xav_cod <- as.factor(df_clean$banca_mcf_xav_cod)
+df_clean$browser <- as.factor(df_clean$browser)
+df_clean$sistema_operativo <- as.factor(df_clean$sistema_operativo)
+df_clean$segmento_des_comm <- as.factor(df_clean$segmento_des_comm)
+df_clean$nps_segment <- as.factor(df_clean$nps_segment)
+df_clean$satisfaction <- as.numeric(df_clean$satisfaction)
+df_clean$gestore <- as.factor(df_clean$gestore)
+df_clean$survey <- as.factor(df_clean$survey)
+df_clean$operazione <- as.factor(df_clean$operazione)
+df_clean$banca_mcf_prodotto_code <- as.factor(df_clean$banca_mcf_prodotto_code)
+df_clean$regione_des_ana <- as.factor(df_clean$regione_des_ana)
+df_clean$area <- as.factor(df_clean$area)
+df_clean$direzione <- as.factor(df_clean$direzione)
+df_clean$filiale <- as.factor(df_clean$filiale)
+df_clean$email <- as.factor(df_clean$email)
+df_clean$customer_segment <- as.factor(df_clean$customer_segment)
+df_clean$attivita_eco_des_ana <- as.factor(df_clean$attivita_eco_des_ana)
+df_clean$sesso_code_ana <- as.factor(df_clean$sesso_code_ana)
+df_clean$fascia_eta_code_ana <- as.factor(df_clean$fascia_eta_code_ana)
+df_clean$fascia_anzianita_code_ana <- as.factor(df_clean$fascia_eta_code_ana)
+df_clean$anzianita_anni_num <- as.numeric(df_clean$anzianita_anni_num)
+df_clean$xav_profilo_postazione <- as.factor(df_clean$xav_profilo_postazione)
+df_clean$fascia_fatturato_ana <- as.factor(df_clean$fascia_fatturato_ana)
+df_clean$banca_mcf_xav_des <- as.factor(df_clean$banca_mcf_xav_des)
+df_clean$vdbank_flg_ana <- as.factor(df_clean$vdbank_flg_ana)
+df_clean$xntweb_flg_ana <- as.factor(df_clean$xntweb_flg_ana)
+df_clean$cliente_con_mutuo_flg_ana <- as.factor(df_clean$cliente_con_mutuo_flg_ana)
+df_clean$cliente_investitore_flg_ana <- as.factor(df_clean$cliente_investitore_flg_ana)
+df_clean$cliente_solo_cc_flg_ana <- as.factor(df_clean$cliente_solo_cc_flg_ana)
+df_clean$in_bonis_flg_comm <- as.factor(df_clean$in_bonis_flg_comm)
+df_clean$multi_flg_comm <- as.factor(df_clean$multi_flg_comm)
+df_clean$risk_rating_comm <- as.factor(df_clean$risk_rating_comm)
+df_clean$cs_abi_num_comm <- as.numeric(df_clean$cs_abi_num_comm)
+df_clean$fascia_tr_code_comm <- as.factor(df_clean$fascia_tr_code_comm)
+df_clean$fascia_utilizzo_online_comm <- as.factor(df_clean$fascia_utilizzo_online_comm)
+df_clean$nps_factors_survey_canale <- as.factor(df_clean$nps_factors_survey_canale)
+df_clean$nps_factors_survey_canale_other <- as.factor(df_clean$nps_factors_survey_canale_other)
+df_clean$ces_factors_transfer_intercept <- as.factor(df_clean$ces_factors_transfer_intercept)
+df_clean$ces_factors_other <- as.factor(df_clean$ces_factors_other)
+df_clean$app_knowledge <- as.factor(df_clean$app_knowledge)
+df_clean$app_used <- as.factor(df_clean$app_used)
+df_clean$xa_app_not_used_reason <- as.factor(df_clean$xa_app_not_used_reason)
+df_clean$xa_app_not_used_reason_other <- as.factor(df_clean$xa_app_not_used_reason_other)
+df_clean$xv_va_app_not_used_reason <- as.factor(df_clean$xv_va_app_not_used_reason)
+df_clean$nps_factors_survey_filiale <- as.factor(df_clean$nps_factors_survey_filiale)
+df_clean$reason_for_score_nps_filiale <- as.factor(df_clean$reason_for_score_nps_filiale)
+df_clean$need_satisfied <- as.factor(df_clean$need_satisfied)
+df_clean$easy_support <- as.numeric(df_clean$easy_support)
+df_clean$service_satisfaction <- as.numeric(df_clean$service_satisfaction)
+df_clean$reason_for_satisfaction <- as.factor(df_clean$reason_for_satisfaction)
+df_clean$reason_for_score_comment <- as.factor(df_clean$reason_for_score_comment)
+df_clean$other_issue_type <- as.factor(df_clean$other_issue_type)
+df_clean$expenses_icon <- as.factor(df_clean$expenses_icon)
+df_clean$expenses_icon_used <- as.factor(df_clean$expenses_icon_used)
+df_clean$consulted_features <- as.factor(df_clean$consulted_features)
+df_clean$interested_in_functionality <- as.factor(df_clean$interested_in_functionality)
+df_clean$ces_reason_for_score <- as.factor(df_clean$ces_reason_for_score)
+df_clean$feature_not_used <- as.factor(df_clean$feature_not_used_other)
+df_clean$not_entered_in_expenses_section <- as.factor(df_clean$not_entered_in_expenses_section)
+df_clean$not_entered_in_expenses_section_other <- as.factor(df_clean$not_entered_in_expenses_section_other)
+df_clean$suggestions_to_improve <- as.factor(df_clean$suggestions_to_improve)
+df_clean$reason_for_dissatisfaction <- as.factor(df_clean$reason_for_dissatisfaction)
+df_clean$feature_not_used_other <- as.factor(df_clean$feature_not_used_other)
+df_clean$disservices_description <- as.factor(df_clean$disservices_description)
+```
+```{r}
+survey_nps_tot = df_clean[df_clean$survey %in% c( "4", "16", "18", "52"),]
+```
+
+# Variable aggregation
+
+```{r include=FALSE}
+survey_nps_tot <- survey_nps_tot %>%
+  mutate(risk_aggregato = case_when(
+    risk_rating_comm %in% c(1,2, 3,4, 5, 6, 7) ~ as.factor(risk_rating_comm),
+    TRUE ~ "Altro"
+  ))
+survey_nps_tot$risk_aggregato = as.factor((survey_nps_tot$risk_aggregato))
+```
+```{r include=FALSE}
+survey_nps_tot <- survey_nps_tot %>%
+  mutate(regione_aggregata = case_when(
+    regione_des_ana %in% c(1, 11, 3, 2, 7, 6, 8) ~ as.factor(regione_des_ana),
+    TRUE ~ "Altro"
+  ))
+survey_nps_tot$regione_aggregata = as.factor((survey_nps_tot$regione_aggregata))
+```
+```{r}
+survey_nps_tot <- survey_nps_tot %>%
+  mutate(direzione_aggregata = case_when(
+    direzione %in% c(1, 2, 3, 4, 5, 7, 6, 8, 9) ~ as.factor(direzione),
+    TRUE ~ "Altro"
+  ))
+survey_nps_tot$direzione_aggregata = as.factor((survey_nps_tot$direzione_aggregata))
+```
+```{r eval=FALSE, include=FALSE}
+survey_nps_tot$email = as.character(survey_nps_tot$email)
+survey_nps_tot$email[is.na(survey_nps_tot$email)] <- "no_email_cliente"
+survey_nps_tot$email = as.factor(survey_nps_tot$email)
+table(survey_nps_tot$email)
+```
+```{r eval=FALSE, include=FALSE}
+GTest(table(survey_nps_tot$segmento_des_comm, survey_nps_tot$customer_segment))
+```
+# Nas Imputation
+```{r echo=TRUE}
+survey_nps_tot <- kNN(survey_nps_tot, variable = "risk_rating_comm")
+```
+# Dual NPS Variable
+```{r}
+survey_nps_tot <- survey_nps_tot %>%
+  mutate(nps_class = case_when(
+    nps < 9 ~ 0,
+    nps %in% c(9, 10) ~ 1
+    
+  ))
+```
+# Data cleaning
+```{r}
+survey_nps_tot_clean <- survey_nps_tot[complete.cases(survey_nps_tot[, c("nps_class", "segmento_des_comm", "regione_aggregata" , "direzione_aggregata"  , "sesso_code_ana", "fascia_eta_code_ana" , "vdbank_flg_ana" , "xntweb_flg_ana" , "cliente_solo_cc_flg_ana" , "cliente_investitore_flg_ana",  "cliente_con_mutuo_flg_ana" , "in_bonis_flg_comm" , "multi_flg_comm" , "fascia_utilizzo_online_comm", "risk_rating_comm")]), 
+                                       c("nps_class", "segmento_des_comm", "regione_aggregata" , "direzione_aggregata", "sesso_code_ana", "fascia_eta_code_ana" , "vdbank_flg_ana" , "xntweb_flg_ana" , "cliente_solo_cc_flg_ana" , "cliente_investitore_flg_ana",  "cliente_con_mutuo_flg_ana" ,"in_bonis_flg_comm" , "multi_flg_comm" , "fascia_utilizzo_online_comm", "risk_rating_comm")]  
+```
+# Random Forest
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_model_all <- randomForest(nps_class ~ ., data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_model_all)
+
+# Visualizza l'importanza delle variabili
+importance(rf_model_all)
+varImpPlot(rf_model_all)
+```
+
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_2 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana + vdbank_flg_ana +  xntweb_flg_ana + cliente_solo_cc_flg_ana + cliente_investitore_flg_ana + cliente_con_mutuo_flg_ana  + multi_flg_comm + fascia_utilizzo_online_comm + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_2)
+
+# Visualizza l'importanza delle variabili
+importance(rf_2)
+varImpPlot(rf_2)
+```
+
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_3 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana + vdbank_flg_ana +  xntweb_flg_ana  + cliente_investitore_flg_ana + cliente_con_mutuo_flg_ana  + multi_flg_comm + fascia_utilizzo_online_comm + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_3)
+
+# Visualizza l'importanza delle variabili
+importance(rf_3)
+varImpPlot(rf_3)
+```
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_4 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana + vdbank_flg_ana   + cliente_investitore_flg_ana + cliente_con_mutuo_flg_ana  + multi_flg_comm + fascia_utilizzo_online_comm + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_4)
+
+# Visualizza l'importanza delle variabili
+importance(rf_4)
+varImpPlot(rf_4)
+```
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_5 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana    + cliente_investitore_flg_ana + cliente_con_mutuo_flg_ana  + multi_flg_comm + fascia_utilizzo_online_comm + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_5)
+
+# Visualizza l'importanza delle variabili
+importance(rf_5)
+varImpPlot(rf_5)
+```
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_6 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana    + cliente_investitore_flg_ana + cliente_con_mutuo_flg_ana  + multi_flg_comm  + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_6)
+
+# Visualizza l'importanza delle variabili
+importance(rf_6)
+varImpPlot(rf_6)
+```
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_7 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana    + cliente_investitore_flg_ana  + multi_flg_comm  + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_7)
+
+# Visualizza l'importanza delle variabili
+importance(rf_7)
+varImpPlot(rf_7)
+```
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_8 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana    + cliente_investitore_flg_ana   + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_8)
+
+# Visualizza l'importanza delle variabili
+importance(rf_8)
+varImpPlot(rf_8)
+```
+```{r include=FALSE}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_9 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana  + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_9)
+
+# Visualizza l'importanza delle variabili
+importance(rf_9)
+varImpPlot(rf_9)
+```
+```{r}
+survey_nps_tot_clean$nps_class <- as.factor(survey_nps_tot_clean$nps_class)
+
+
+# Costruisci la Random Forest con tutte le variabili
+set.seed(123)  # Per riproducibilità
+rf_10 <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata +  fascia_eta_code_ana  + risk_rating_comm, data = survey_nps_tot_clean)
+
+# Visualizza i risultati
+print(rf_10)
+
+# Visualizza l'importanza delle variabili
+importance(rf_10)
+varImpPlot(rf_10)
+```
+
+# Predictions
+
+```{r warning=FALSE}
+set.seed(123)  # Per riproducibilità
+train_index <- sample(1:nrow(survey_nps_tot_clean), 0.75 * nrow(survey_nps_tot_clean))
+train_set <- survey_nps_tot_clean[train_index, ]
+test_set <- survey_nps_tot_clean[-train_index, ]
+
+# Assicurati che nps_class sia un fattore con livelli coerenti
+train_set$nps_class <- factor(train_set$nps_class, levels = c("0", "1"))
+test_set$nps_class <- factor(test_set$nps_class, levels = c("0", "1"))
+
+# Predizioni basate su soglie
+thresholds <- seq(0, 1, by = 0.01)
+results <- data.frame(threshold = thresholds, accuracy = NA)
+
+library(pROC)
+
+# Prevedi le probabilità per la classe positiva
+predictions_prob <- predict(rf_10, newdata = train_set, type = "prob")[, 2]
+
+# Calcola la curva ROC
+roc_curve <- roc(train_set$nps_class, predictions_prob)
+
+# Trova la soglia che massimizza la Youden's J statistic (TPR - FPR)
+best_threshold <- coords(roc_curve, "best", ret = "threshold", best.method = "youden")
+
+# Stampa la soglia ottimale
+print(paste("Soglia che massimizza la ROC:", best_threshold))
+
+# Calcola e stampa l'AUC
+auc_value <- auc(roc_curve)
+print(paste("AUC:", auc_value))
+```
+```{r}
+# Prevedi le probabilità per la classe positiva nel test set
+predictions_prob_test <- predict(rf_7, newdata = test_set, type = "prob")[, 2]
+
+# Usa la soglia ottimale per convertire le probabilità in predizioni binarie
+predictions_test <- ifelse(predictions_prob_test > 0.761, "1", "0")
+
+# Calcola la matrice di confusione per il test set
+cm_test <- confusionMatrix(as.factor(predictions_test), test_set$nps_class)
+
+# Stampa i risultati della matrice di confusione
+print(cm_test)
+
+# Calcola l'accuratezza, precisione, richiamo e F1-score sul test set
+accuracy <- cm_test$overall['Accuracy']
+precision <- cm_test$byClass['Pos Pred Value']
+recall <- cm_test$byClass['Sensitivity']
+f1_score <- 2 * (precision * recall) / (precision + recall)
+specificity <- cm_test$byClass["Specificity"]
+
+cat("Model Evaluation Metrics on Test Set:\n",
+    "Accuracy   :", round(accuracy, 4), "\n",
+    "Precision  :", round(precision, 4), "\n",
+    "Recall     :", round(recall, 4), "\n",
+    "F1-Score   :", round(f1_score, 4), "\n",
+    "Specificity:", round(specificity, 4), "\n")
+```
+
+```{r}
+
+roc_curve_test <- roc(test_set$nps_class, predictions_prob_test)
+# Creazione di una ROC plot più elegante
+ggroc(roc_curve_test) +
+  theme_minimal() +  # Tema pulito
+  labs(title = "Roc Curve",
+       x = "False Positive Rate (1 - Specificity)",
+       y = "True Positive Rate (Recall)") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  ) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +  # Linea di riferimento
+  scale_color_manual(values = c("#00AFBB", "#E7B800"))  # Colori personalizzati (se hai più curve ROC)
+roc_curve_test
+```
+
+```{r eval=FALSE, include=FALSE}
+library(ROSE)
+
+# Applica ROSE per bilanciare le classi
+survey_balanced <- ROSE(nps_class ~ ., data = survey_nps_tot_clean, seed = 123)$data
+
+# Verifica la distribuzione delle classi
+table(survey_balanced$nps_class)
+
+
+```
+```{r eval=FALSE, include=FALSE}
+# Assicurati che la variabile nps_class sia un fattore
+survey_balanced$nps_class <- factor(survey_balanced$nps_class)
+
+# Suddividi i dati in train e test set (75% - 25%)
+set.seed(123)  # Per riproducibilità
+train_index <- sample(1:nrow(survey_balanced), 0.75 * nrow(survey_balanced))
+train_set <- survey_balanced[train_index, ]
+test_set <- survey_balanced[-train_index, ]
+
+train_set$nps_class <- factor(train_set$nps_class, levels = c("0", "1"))
+test_set$nps_class <- factor(test_set$nps_class, levels = c("0", "1"))
+
+# Costruisci il modello Random Forest
+rf_model_balanced <- randomForest(nps_class ~ segmento_des_comm +  regione_aggregata +  direzione_aggregata+  sesso_code_ana +  fascia_eta_code_ana    + cliente_investitore_flg_ana  + multi_flg_comm  + risk_rating_comm, data = train_set, ntree = 100)
+
+# Ottieni le probabilità di previsione sul test set
+predictions_prob <- predict(rf_model_balanced, newdata = test_set, type = "prob")
+
+# Scegli una soglia di probabilità (0.5 per esempio, o puoi ottimizzarla)
+threshold <- 0.6
+predictions <- ifelse(predictions_prob[, 2] > threshold, "1", "0")
+
+# Calcola la matrice di confusione
+confusion_matrix <- confusionMatrix(as.factor(predictions), test_set$nps_class)
+
+# Stampa la matrice di confusione e le statistiche
+print(confusion_matrix)
+```
+
+
